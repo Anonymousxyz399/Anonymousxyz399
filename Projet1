@@ -1,0 +1,124 @@
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+import os
+import json
+
+# Fichier de configuration pour stocker le code secret
+CONFIG_FILE = "config.json"
+
+# Dossier où les fichiers multimédias sont cachés
+HIDDEN_FOLDER = "hidden_media"
+
+class CalculatorApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Calculatrice Samsung-like")
+        self.root.geometry("350x550")
+        self.root.configure(bg="#000000")
+        self.entry = tk.Entry(root, width=20, font=('Arial', 24), justify="right", bd=0, bg="#000000", fg="#FFFFFF")
+        self.entry.grid(row=0, column=0, columnspan=4, padx=10, pady=20)
+        self.code_entered = ""
+        self.secret_code = self.load_secret_code()
+        self.create_buttons()
+        self.create_menu()
+
+    def create_buttons(self):
+        buttons = [
+            ('C', '#A5A5A5', 1, 0), ('±', '#A5A5A5', 1, 1), ('%', '#A5A5A5', 1, 2), ('/', '#FF9500', 1, 3),
+            ('7', '#333333', 2, 0), ('8', '#333333', 2, 1), ('9', '#333333', 2, 2), ('*', '#FF9500', 2, 3),
+            ('4', '#333333', 3, 0), ('5', '#333333', 3, 1), ('6', '#333333', 3, 2), ('-', '#FF9500', 3, 3),
+            ('1', '#333333', 4, 0), ('2', '#333333', 4, 1), ('3', '#333333', 4, 2), ('+', '#FF9500', 4, 3),
+            ('0', '#333333', 5, 0), ('.', '#333333', 5, 2), ('=', '#FF9500', 5, 3)
+        ]
+
+        for (text, bg_color, row, col) in buttons:
+            if text == '0':
+                btn = tk.Button(self.root, text=text, width=13, height=2, font=('Arial', 18), bd=0, bg=bg_color, fg="#FFFFFF", command=lambda t=text: self.button_click(t))
+                btn.grid(row=row, column=col, columnspan=2, padx=5, pady=5)
+            else:
+                btn = tk.Button(self.root, text=text, width=5, height=2, font=('Arial', 18), bd=0, bg=bg_color, fg="#FFFFFF", command=lambda t=text: self.button_click(t))
+                btn.grid(row=row, column=col, padx=5, pady=5)
+
+    def create_menu(self):
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+        settings_menu = tk.Menu(menubar, tearoff=0)
+        settings_menu.add_command(label="Changer le code secret", command=self.change_secret_code)
+        menubar.add_cascade(label="Paramètres", menu=settings_menu)
+
+    def button_click(self, value):
+        if value == 'C':
+            self.entry.delete(0, tk.END)
+            self.code_entered = ""
+        elif value == '=':
+            self.evaluate_expression()
+        else:
+            self.entry.insert(tk.END, value)
+            self.code_entered += value
+            self.check_secret_code()
+
+    def evaluate_expression(self):
+        try:
+            result = str(eval(self.entry.get()))
+            self.entry.delete(0, tk.END)
+            self.entry.insert(0, result)
+        except:
+            self.entry.delete(0, tk.END)
+            self.entry.insert(0, "Erreur")
+
+    def check_secret_code(self):
+        if len(self.code_entered) == 4:
+            if self.code_entered == self.secret_code:
+                self.show_hidden_media()
+            else:
+                self.code_entered = ""
+                self.entry.delete(0, tk.END)
+                messagebox.showwarning("Code Incorrect", "Le code saisi est incorrect.")
+
+    def show_hidden_media(self):
+        if not os.path.exists(HIDDEN_FOLDER):
+            os.makedirs(HIDDEN_FOLDER)
+            messagebox.showinfo("Dossier Caché", f"Le dossier '{HIDDEN_FOLDER}' a été créé. Placez vos fichiers multimédias ici.")
+        else:
+            media_files = os.listdir(HIDDEN_FOLDER)
+            if media_files:
+                messagebox.showinfo("Fichiers Cachés", f"Fichiers disponibles dans '{HIDDEN_FOLDER}':\n" + "\n".join(media_files))
+            else:
+                messagebox.showinfo("Dossier Vide", f"Aucun fichier trouvé dans '{HIDDEN_FOLDER}'.")
+
+    def load_secret_code(self):
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, "r") as file:
+                config = json.load(file)
+                return config.get("secret_code", "0000")
+        else:
+            return self.setup_secret_code()
+
+    def setup_secret_code(self):
+        secret_code = simpledialog.askstring("Configuration", "Définissez un code secret à 4 chiffres :", show="*")
+        if secret_code and len(secret_code) == 4 and secret_code.isdigit():
+            with open(CONFIG_FILE, "w") as file:
+                json.dump({"secret_code": secret_code}, file)
+            return secret_code
+        else:
+            messagebox.showerror("Erreur", "Le code secret doit être composé de 4 chiffres.")
+            return self.setup_secret_code()
+
+    def change_secret_code(self):
+        old_code = simpledialog.askstring("Changer le code", "Entrez l'ancien code secret :", show="*")
+        if old_code == self.secret_code:
+            new_code = simpledialog.askstring("Changer le code", "Entrez le nouveau code secret à 4 chiffres :", show="*")
+            if new_code and len(new_code) == 4 and new_code.isdigit():
+                self.secret_code = new_code
+                with open(CONFIG_FILE, "w") as file:
+                    json.dump({"secret_code": new_code}, file)
+                messagebox.showinfo("Succès", "Le code secret a été modifié avec succès.")
+            else:
+                messagebox.showerror("Erreur", "Le nouveau code secret doit être composé de 4 chiffres.")
+        else:
+            messagebox.showerror("Erreur", "L'ancien code secret est incorrect.")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = CalculatorApp(root)
+    root.mainloop()
